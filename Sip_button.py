@@ -4,8 +4,8 @@ import time
 
 # Set up the GPIO pin for the button
 button_pin = 18
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(button_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+#GPIO.setmode(GPIO.BCM)
+#GPIO.setup(button_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 # Start linphone in interactive mode
 linphone = pexpect.spawn('linphonec')
