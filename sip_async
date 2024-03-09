@@ -1,0 +1,33 @@
+import asyncio
+import aiohttp
+import aiortc
+import aiosip
+
+async def main():
+    app = aiosip.Application(loop=loop)
+
+    peer = aiosip.Application(loop=loop)
+    dialog = None
+
+    while True:
+        if dialog is None:
+            dialog = await app.dial(
+                'sip:1006@192.168.0.36',
+                from_details=aiosip.Contact.from_header('sip:alice@192.168.0.36'),
+                password='alicepassword',
+                local_addr=('192.168.0.36', 5060),
+                remote_addr=('141.136.1.20', 5060)
+            )
+
+        await asyncio.sleep(25)
+
+        if dialog is not None:
+            await dialog.close()
+            dialog = None
+
+        await asyncio.sleep(1)
+
+    await app.stop()
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(main())

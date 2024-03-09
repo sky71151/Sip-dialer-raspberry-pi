@@ -2,11 +2,12 @@ import pjsua as pj
 import time
 import threading
 
+raspberry_pi = True
 
-
-import RPi.GPIO as GPIO
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(4, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+if raspberry_pi:
+    import RPi.GPIO as GPIO
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(18, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 
 #pi register information
@@ -44,24 +45,16 @@ def check_registration_status(account):
     timer = threading.Timer(30.0, check_registration_status, args=[account])
     timer.start()
 
-
-class MyCallCallback(pj.CallCallback):
-    def __init__(self, call=None):
-        pj.CallCallback.__init__(self, call)
-        self.player_id = None
-
-    def _set_account(self, account):
-        self.account = account
-
-    def on_mwi_info(self, body):
-        pass
-
-    def is_call_active(self):
-        return self.call.info().state == pj.CallState.CONFIRMED
+class MyAccountCallback(pj.AccountCallback):
+    def __init__(self, account=None):
+        pj.AccountCallback.__init__(self, account)
+       
 
     def on_incoming_call(self, call):
-        print("Incoming call from ", self.call.info().remote_uri)
-        self.call.answer(200)
+        print("Incoming call from ", call.info().remote_uri)
+        call.answer(200)
+        print("Call is answered and hanging up!")
+        call.hangup()
 
     def on_reg_state(self):
         if self.account.info().reg_status >= 200 and self.account.info().reg_status < 300:
@@ -72,17 +65,14 @@ class MyCallCallback(pj.CallCallback):
             self.lib.create_account(pj.AccountConfig(domain, user, password))
 
     def on_state(self):
-        global call_active
-        print("Call is ", self.call.info().state_text)
-        if self.call.info().state == pj.CallState.CONFIRMED:
+        print("Call is ", self.account.info().state_text)
+        if self.account.info().state == pj.CallState.CONFIRMED:
             print("Call is answered, hanging up")
-            self.call.hangup()
+            self.account.hangup()
             call_active = False
-        if self.call.info().state == pj.CallState.DISCONNECTED:
+        if self.account.info().state == pj.CallState.DISCONNECTED:
             print("Call is disconnected")
-            call_active = False
-  
-
+            call_active = False 
 
 
 def first_registration():
@@ -98,7 +88,7 @@ def first_registration():
 
         # Create and register an account
         acc = lib.create_account(pj.AccountConfig(domain, user, password))
-        acc.set_callback(MyCallCallback(acc))
+        acc.set_callback(MyAccountCallback(acc))
 
         return acc
     
@@ -109,8 +99,11 @@ def first_registration():
 
 def make_call(account, to_user):
     # Make the call
-    call = account.make_call("sip:" + to_user + "@" + to_domain, MyCallCallback())
+    call = account.make_call("sip:" + to_user + "@" + to_domain, MyAccountCallback())
     print("Call to " + to_user + " is made")
+
+def long_press_function():
+    print("Long press function")
 
 #setup
 # Register the thread with PJSIP
@@ -128,17 +121,26 @@ while acc.info().reg_status < 200 or acc.info().reg_status >= 300:
     print("Waiting for registration")
     time.sleep(1)
 
+
+#main function
 while True:
-    input_state = GPIO.input(4)
-    if input_state == False:
-        print("Button pressed" + time.strftime("%Y-%m-%d %H:%M:%S")) 
-        if not call_active:
-            # Record the time the button was pressed
-            while GPIO.input(4) == False:
-                # Wait for the button to be released
-                time.sleep(0.3)
-            call_active = True
-            make_call(acc, to_user1)
-            
-        else:
-            print("Call is active, cannot make another call")
+    if raspberry_pi:
+        input_state = GPIO.input(18)
+        if input_state == False:
+            if not call_active:
+                # Record the time the button was pressed
+                button_press_time = time.time()
+                while GPIO.input(18) == False:
+                    # Wait for the button to be released
+                    time.sleep(0.1)
+                # Calculate how long the button was pressed
+                elapsed_time = time.time() - button_press_time
+                # If the button was pressed for more than 2 seconds, call the long press function
+                if elapsed_time > 10:
+                    long_press_function()
+                else:
+                    # Otherwise, make a call
+                    make_call(acc, to_user1)
+                    call_active = True
+            else:
+                print("Call is active, cannot make another call")
